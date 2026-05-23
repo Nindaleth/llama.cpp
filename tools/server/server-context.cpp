@@ -951,6 +951,20 @@ private:
         GGML_ASSERT(sleeping != new_state);
         if (new_state) {
             SRV_INF("%s", "server is entering sleeping state\n");
+            if (prompt_cache) {
+                for (auto & slot : slots) {
+                    if (!slot.is_processing()) {
+                        SLT_INF(slot, "%s", "saving idle slot to prompt cache\n");
+                        if (slot.prompt_save(*prompt_cache)) {
+                            SLT_DBG(slot, "%s", "__TEST_TAG_CACHE_IDLE_SLOT__\n");
+                            prompt_cache->update();
+                        }
+                        if (params_base.kv_unified) {
+                            slot.prompt_clear(false);
+                        }
+                    }
+                }
+            }
             destroy();
         } else {
             SRV_INF("%s", "server is exiting sleeping state\n");
@@ -1396,7 +1410,9 @@ private:
             }
             SRV_INF("%s", "use `--cache-ram 0` to disable the prompt cache\n");
 
-            prompt_cache = std::make_unique<server_prompt_cache>(params_base.cache_ram_mib, n_ctx);
+            if (!is_resume) {
+                prompt_cache = std::make_unique<server_prompt_cache>(params_base.cache_ram_mib, n_ctx);
+            }
         } else {
             SRV_INF("%s", "prompt cache is disabled - use `--cache-ram N` to enable it\n");
         }
