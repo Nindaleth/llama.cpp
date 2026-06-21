@@ -1370,7 +1370,7 @@ private:
             const int n_ctx_capped = params_base.kv_unified_per_slot > 0 ?
                 std::min(n_ctx_seq, params_base.kv_unified_per_slot) : n_ctx_seq;
 
-            if (n_ctx_capped > n_ctx_train) {
+            if (n_ctx_capped > n_ctx_train && params_base.rope_scaling_type <= LLAMA_ROPE_SCALING_TYPE_LINEAR) {
                 SRV_WRN("the slot context (%d) exceeds the training context of the model (%d) - capping\n",
                         n_ctx_capped, n_ctx_train);
             }
