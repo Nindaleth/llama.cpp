@@ -1068,6 +1068,15 @@ private:
                 // note: for sleeping == false, event is emitted by load_model()
             }
             SRV_INF("%s", "server is entering sleeping state\n");
+            // save slot prompts to the RAM prompt cache so they survive the model reload
+            if (prompt_cache) {
+                for (auto & slot : slots) {
+                    if (slot.prompt_save(*prompt_cache)) {
+                        SRV_INF("saved slot %d prompt to cache, n_tokens = %d\n", slot.id, slot.prompt.n_tokens());
+                    }
+                }
+                prompt_cache->update();
+            }
             destroy();
         } else {
             SRV_INF("%s", "server is exiting sleeping state\n");
@@ -1497,7 +1506,13 @@ private:
             }
             SRV_TRC("%s", "use `--cache-ram 0` to disable the prompt cache\n");
 
-            prompt_cache = std::make_unique<server_prompt_cache>(params_base.cache_ram_mib, n_ctx);
+            // preserve entries saved during sleep
+            if (!is_resume || !prompt_cache) {
+                prompt_cache = std::make_unique<server_prompt_cache>(params_base.cache_ram_mib, n_ctx);
+            } else {
+                SRV_INF("preserving prompt cache, %zu states (%.3f MiB)\n",
+                        prompt_cache->states.size(), prompt_cache->size() / (1024.0 * 1024.0));
+            }
         } else {
             SRV_TRC("%s", "prompt cache is disabled - use `--cache-ram N` to enable it\n");
         }
